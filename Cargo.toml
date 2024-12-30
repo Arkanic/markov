@@ -1,0 +1,15 @@
+[package]
+name = "markov"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "markov"
+path = "src/lib.rs"
+
+[[bin]]
+name = "markov"
+path = "src/bin.rs"
+
+[dependencies]
+weighted_rand = "0.4"
