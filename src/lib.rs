@@ -196,6 +196,9 @@ impl Markov {
     }
 
     fn train_pair(&mut self, word:&str, future:&str) {
+        if word.contains('␟') || future.contains('␟') {
+            return; // just ditch it
+        }
         let wordhash = match self.lookup.entry(word.to_string()) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => v.insert(MarkovFile::create_self(self.datadir.as_str(), word))
