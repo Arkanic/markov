@@ -210,7 +210,7 @@ impl Markov {
         file.write_self(self.datadir.as_str());
     }
 
-    pub fn train_from_string(&mut self, content:&str) {
+    pub fn train(&mut self, content:&str) {
         let mut words = content.split_whitespace();
         let mut previous = words.next().unwrap();
         for word in words {
