@@ -1,7 +1,8 @@
-use std::fs;
+use std::{collections::hash_map::Entry, fs};
 use std::path::Path;
 use std::collections::HashMap;
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
+use sha256::digest;
 
 static LOOKUP:&str = "lookup.dat";
 static PARTICLES:&str = "particles";
@@ -9,13 +10,13 @@ static SOURCES:&str = "sources";
 
 struct MarkovFileReference {
     hash:String,
-    occurences:u32
+    occurrences:u32
 }
 
 // MARKOV FILE FORMAT
 /* <hash>.dat
 <word>
-<future hash>:occurences:<comma seperated metadata hashes>
+<future hash>:occurrences:<comma seperated metadata hashes>
 1...n
 */
 
@@ -36,7 +37,7 @@ impl MarkovFile {
             let mut parts = line.split(":");
             futures.push(MarkovFileReference {
                 hash: parts.next().unwrap().to_string(),
-                occurences:  parts.next().unwrap().parse::<u32>().unwrap()
+                occurrences:  parts.next().unwrap().parse::<u32>().unwrap()
             });
         }
 
@@ -44,6 +45,47 @@ impl MarkovFile {
             hash: hash.to_string(),
             word,
             futures
+        }
+    }
+
+    // returns hash
+    fn create_self(datadir:&str, word:&str) -> String {
+        let hash = digest(digest(word));
+        let file = MarkovFile {
+            hash: hash.clone(),
+            word: word.to_string(),
+            futures: vec![]
+        };
+        file.write_self(datadir);
+
+        hash
+    }
+
+    fn write_self(&self, datadir:&str) {
+        let mut data = String::new();
+        data.push_str(format!("{}\n", self.word).as_str());
+        for future in self.futures.iter() {
+            data.push_str(format!("{}:{}\n", future.hash, future.occurrences).as_str());
+        }
+
+        fs::write(Path::new(datadir).join(PARTICLES).join(format!("{}.dat", self.hash)), data).unwrap();
+    }
+
+    fn add_occurrence(&mut self, occurrence_hash:&str) {
+        // todo: not stupid search
+        let mut found = false;
+        for future in self.futures.iter_mut() {
+            if future.hash == occurrence_hash {
+                found = true;
+                future.occurrences += 1;
+            }
+        }
+
+        if !found {
+            self.futures.push(MarkovFileReference {
+                hash: occurrence_hash.to_string(),
+                occurrences: 1
+            });
         }
     }
 
@@ -55,7 +97,7 @@ impl MarkovFile {
             if (future.hash == "0") && !allow_end {
             } else {
                 hashes.push(future.hash.as_str());
-                weights.push(future.occurences);
+                weights.push(future.occurrences);
             }
         }
 
@@ -105,6 +147,7 @@ impl Markov {
     }
 
     pub fn new_from_scratch(dir:&str) -> Self {
+        fs::create_dir(Path::new(dir)).unwrap();
         fs::create_dir(Path::new(dir).join(PARTICLES)).unwrap();
         fs::create_dir(Path::new(dir).join(SOURCES)).unwrap();
         fs::File::create(Path::new(dir).join(LOOKUP)).unwrap();
@@ -150,6 +193,39 @@ impl Markov {
         }
 
         Some(output)
+    }
+
+    fn train_pair(&mut self, word:&str, future:&str) {
+        let wordhash = match self.lookup.entry(word.to_string()) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(MarkovFile::create_self(self.datadir.as_str(), word))
+        }.to_owned();
+        let futurehash = match self.lookup.entry(future.to_string()) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(MarkovFile::create_self(self.datadir.as_str(), future))
+        }.to_owned();
+
+        let mut file = MarkovFile::from_read(self.datadir.as_str(), wordhash.as_str());
+        file.add_occurrence(futurehash.as_str());
+        file.write_self(self.datadir.as_str());
+    }
+
+    pub fn train_from_string(&mut self, content:&str) {
+        let mut words = content.split_whitespace();
+        let mut previous = words.next().unwrap();
+        for word in words {
+            self.train_pair(previous, word);
+
+            previous = word;
+        }
+
+        // add end trait to final element in string
+        let previoushash = self.hash_from_word(previous).unwrap();
+        let mut file = MarkovFile::from_read(self.datadir.as_str(), previoushash);
+        file.add_occurrence("0");
+
+        // save the adjusted lookup table
+        self.save_lookup();
     }
 
     fn save_lookup(&self) {
