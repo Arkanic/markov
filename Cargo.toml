@@ -13,4 +13,4 @@ path = "src/bin.rs"
 
 [dependencies]
 weighted_rand = "0.4"
-sha256 = "1.5.0"
+sqlite = "0.36.1"
