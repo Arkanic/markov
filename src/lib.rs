@@ -1,161 +1,175 @@
-use std::{collections::hash_map::Entry, fs};
-use std::path::Path;
 use std::collections::HashMap;
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
-use sha256::digest;
+use sqlite::Connection;
 
-static LOOKUP:&str = "lookup.dat";
-static PARTICLES:&str = "particles";
-static SOURCES:&str = "sources";
+static SQL_GETWORD:&str = "select * from words where id = ?";
+static SQL_INSERTWORD:&str = "insert into words values (NULL, ?, \"\")";
+static SQL_CURRENTWORD:&str = "select * from words order by id desc limit 1";
+static SQL_UPDATEFUTURES:&str = "update words set futures = ? where id = ?";
+static SQL_GETLOOKUP:&str = "select * from words";
+static SQL_INIT:&str = "create table words (id integer primary key, word text, futures text)";
 
-struct MarkovFileReference {
-    hash:String,
-    occurrences:u32
+struct MarkovWordReference {
+    id:i64,
+    occurrences:i64
 }
 
-// MARKOV FILE FORMAT
-/* <hash>.dat
-<word>
-<future hash>:occurrences:<comma seperated metadata hashes>
-1...n
-*/
-
-struct MarkovFile {
-    hash:String,
+struct MarkovWord {
+    id:i64,
     word:String,
-    futures:Vec<MarkovFileReference>
+    futures:Vec<MarkovWordReference>
 }
 
-impl MarkovFile {
-    fn from_read(datadir:&str, hash:&str) -> Self {
-        let file = fs::read_to_string(Path::new(datadir).join(PARTICLES).join(format!("{}.dat", hash))).unwrap();
-        let mut lines = file.lines();
-        
-        let word = lines.next().unwrap().to_string();
-        let mut futures:Vec<MarkovFileReference> = Vec::new();
-        for line in lines {
-            let mut parts = line.split(":");
-            futures.push(MarkovFileReference {
-                hash: parts.next().unwrap().to_string(),
-                occurrences:  parts.next().unwrap().parse::<u32>().unwrap()
+impl MarkovWord {
+    fn from_read(connection:&Connection, id:i64) -> Self {
+        let mut statement = connection.prepare(SQL_GETWORD).unwrap();
+        statement.bind((1, id)).unwrap();
+        statement.next().unwrap();
+
+        let word = statement.read::<String, _>("word").unwrap();
+
+        let mut futures:Vec<MarkovWordReference> = Vec::new();
+        let futures_raw = statement.read::<String, _>("futures").unwrap();
+        for future_raw in futures_raw.split(",").filter(|&s| !s.is_empty()) {
+            let mut parts = future_raw.split(":");
+            futures.push(MarkovWordReference {
+                id: parts.next().unwrap().parse::<i64>().unwrap(),
+                occurrences: parts.next().unwrap().parse::<i64>().unwrap()
             });
         }
 
-        MarkovFile {
-            hash: hash.to_string(),
+        MarkovWord {
+            id,
             word,
             futures
         }
     }
 
-    // returns hash
-    fn create_self(datadir:&str, word:&str) -> String {
-        let hash = digest(digest(word));
-        let file = MarkovFile {
-            hash: hash.clone(),
-            word: word.to_string(),
-            futures: vec![]
-        };
-        file.write_self(datadir);
+    // returns id
+    fn create_self(connection:&Connection, word:&str) -> i64 {
+        let mut statement = connection.prepare(SQL_INSERTWORD).unwrap();
+        statement.bind((1, word)).unwrap();
+        statement.next().unwrap();
 
-        hash
+        // now get the id of the new word
+        let mut statement = connection.prepare(SQL_CURRENTWORD).unwrap();
+        statement.next().unwrap();
+
+        statement.read::<i64, _>("id").unwrap()
     }
 
-    fn write_self(&self, datadir:&str) {
-        let mut data = String::new();
-        data.push_str(format!("{}\n", self.word).as_str());
+    fn update_self(&self, connection:&Connection) {
+        let mut futures = String::new();
         for future in self.futures.iter() {
-            data.push_str(format!("{}:{}\n", future.hash, future.occurrences).as_str());
+            futures.push_str(format!("{}:{},", future.id, future.occurrences).as_str());
         }
 
-        fs::write(Path::new(datadir).join(PARTICLES).join(format!("{}.dat", self.hash)), data).unwrap();
+        let mut statement = connection.prepare(SQL_UPDATEFUTURES).unwrap();
+        statement.bind((1, futures.as_str())).unwrap();
+        statement.bind((2, self.id)).unwrap();
+        statement.next().unwrap();
     }
 
-    fn add_occurrence(&mut self, occurrence_hash:&str) {
+    fn add_occurrence(&mut self, id:i64) {
         // todo: not stupid search
         let mut found = false;
         for future in self.futures.iter_mut() {
-            if future.hash == occurrence_hash {
+            if future.id == id {
                 found = true;
                 future.occurrences += 1;
             }
         }
 
         if !found {
-            self.futures.push(MarkovFileReference {
-                hash: occurrence_hash.to_string(),
+            self.futures.push(MarkovWordReference {
+                id,
                 occurrences: 1
             });
         }
     }
 
-    fn pick_next(&self, allow_end:bool) -> Option<String> {
-        let mut hashes:Vec<&str> = Vec::new();
+    fn pick_next(&self, allow_end:bool) -> Option<i64> {
+        let mut ids:Vec<i64> = Vec::new();
         let mut weights:Vec<u32> = Vec::new();
 
         for future in self.futures.iter() {
-            if (future.hash == "0") && !allow_end {
+            if (future.id == -1) && !allow_end {
             } else {
-                hashes.push(future.hash.as_str());
-                weights.push(future.occurrences);
+                ids.push(future.id);
+                weights.push(future.occurrences as u32);
             }
         }
 
-        if hashes.len() == 0 {
+        if ids.len() == 0 {
             None
         } else {
             let table = WalkerTableBuilder::new(weights.as_slice()).build();
-            let hash = hashes[table.next()].to_string();
+            let id = ids[table.next()];
 
-            if hash == "0" {
+            if id == -1 {
                 None
             } else {
-                Some(hash)
+                Some(id)
             }
         }
     }
 }
-
 
 pub struct MarkovOptions {
     allow_early_end:bool
 }
 
 pub struct Markov {
-    datadir:String,
-    lookup:HashMap<String, String>
+    connection:Connection,
+    lookup:HashMap<String, i64>
 }
 
 impl Markov {
-    pub fn new_from_existing(dir:&str) -> Self {
-        // read lookup table to memory
-        let mut lookup:HashMap<String, String> = HashMap::new();
-        for line in fs::read_to_string(Path::new(dir).join(LOOKUP)).unwrap().lines() {
-            let mut parts = line.split("␟");
-            lookup.insert(
-                parts.next().unwrap().to_string(),
-                parts.next().unwrap().to_string()
+    fn load_lookup(markov:&mut Markov) {
+        let mut statement = markov.connection.prepare(SQL_GETLOOKUP).unwrap();
+        while let Ok(sqlite::State::Row) = statement.next() {
+            markov.lookup.insert(
+                statement.read::<String, _>("word").unwrap(),
+                statement.read::<i64, _>("id").unwrap()
             );
-        }
+        };
+    }
+    pub fn new_from_existing(path:&str) -> Self {
+        let connection = sqlite::open(path).unwrap();
 
-        let data = Markov {
-            datadir: dir.to_owned(),
-            lookup
+        let mut markov = Markov {
+            connection,
+            lookup: HashMap::new()
         };
 
-        data
+        Markov::load_lookup(&mut markov);
+        markov
     }
 
-    pub fn new_from_scratch(dir:&str) -> Self {
-        fs::create_dir(Path::new(dir)).unwrap();
-        fs::create_dir(Path::new(dir).join(PARTICLES)).unwrap();
-        fs::create_dir(Path::new(dir).join(SOURCES)).unwrap();
-        fs::File::create(Path::new(dir).join(LOOKUP)).unwrap();
+    // if None is passed, will instantiate inside memory
+    pub fn new_from_scratch(path:Option<&str>) -> Self {
+        let path = match path {
+            Some(s) => s,
+            None => ":memory:"
+        };
+        let connection = sqlite::open(path).unwrap();
 
-        Markov::new_from_existing(dir)
+        let mut markov = Markov {
+            connection,
+            lookup: HashMap::new()
+        };
+
+        // init
+        {
+            let mut statement = markov.connection.prepare(SQL_INIT).unwrap();
+            statement.next().unwrap();
+        }
+
+        Markov::load_lookup(&mut markov);
+        markov
     }
 
-    fn hash_from_word(&self, word:&str) -> Option<&String> {
+    fn id_from_word(&self, word:&str) -> Option<&i64> {
         self.lookup.get(word)
     }
 
@@ -166,26 +180,26 @@ impl Markov {
 
         let mut output = String::new();
 
-        let exists = self.hash_from_word(start);
+        let exists = self.id_from_word(start);
         if exists == None {
             return None;
         }
 
-        let mut hash = exists.unwrap().to_string();
+        let mut id = *exists.unwrap();
 
         let mut i = 0;
         loop {
             i += 1;
 
-            let file = MarkovFile::from_read(self.datadir.as_str(), hash.as_str());
-            output.push_str(format!("{} ", file.word).as_str());
+            let word = MarkovWord::from_read(&self.connection, id);
+            output.push_str(format!("{} ", word.word).as_str());
 
-            let next = file.pick_next(options.allow_early_end);
+            let next = word.pick_next(options.allow_early_end);
             if next == None {
                 return Some(output);
             }
 
-            hash = next.unwrap();
+            id = next.unwrap();
 
             if i > maxlen {
                 break;
@@ -196,21 +210,12 @@ impl Markov {
     }
 
     fn train_pair(&mut self, word:&str, future:&str) {
-        if word.contains('␟') || future.contains('␟') {
-            return; // just ditch it
-        }
-        let wordhash = match self.lookup.entry(word.to_string()) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => v.insert(MarkovFile::create_self(self.datadir.as_str(), word))
-        }.to_owned();
-        let futurehash = match self.lookup.entry(future.to_string()) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => v.insert(MarkovFile::create_self(self.datadir.as_str(), future))
-        }.to_owned();
+        let wordid = *self.lookup.entry(word.to_string()).or_insert_with(|| MarkovWord::create_self(&self.connection, word));
+        let futureid = *self.lookup.entry(future.to_string()).or_insert_with(|| MarkovWord::create_self(&self.connection, future));
 
-        let mut file = MarkovFile::from_read(self.datadir.as_str(), wordhash.as_str());
-        file.add_occurrence(futurehash.as_str());
-        file.write_self(self.datadir.as_str());
+        let mut markov = MarkovWord::from_read(&self.connection, wordid);
+        markov.add_occurrence(futureid);
+        markov.update_self(&self.connection);
     }
 
     pub fn train(&mut self, content:&str) {
@@ -223,27 +228,13 @@ impl Markov {
         }
 
         // add end trait to final element in string
-        let previoushash = self.hash_from_word(previous).unwrap();
-        let mut file = MarkovFile::from_read(self.datadir.as_str(), previoushash);
-        file.add_occurrence("0");
+        let previousid = *self.id_from_word(previous).unwrap();
+        let mut word = MarkovWord::from_read(&self.connection, previousid);
+        word.add_occurrence(-1);
 
-        // save the adjusted lookup table
-        self.save_lookup();
-    }
-
-    fn save_lookup(&self) {
-        let mut data = String::new();
-        for (key, value) in self.lookup.clone().into_iter() {
-            data.push_str(format!("{}␟{}\n", key, value).as_str());
-        }
-
-        fs::write(Path::new(self.datadir.as_str()).join(LOOKUP), data).unwrap();
-    }
-}
-
-impl Drop for Markov {
-    fn drop(&mut self) {
-        // we want to save updated lookup table on shutdown
-        self.save_lookup();
+        // make sure lookup is up to date by replacing it
+        let lookup:HashMap<String, i64> = HashMap::new();
+        self.lookup = lookup; // drop old table
+        Markov::load_lookup(self);
     }
 }

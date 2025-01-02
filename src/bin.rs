@@ -9,7 +9,7 @@ fn main() {
     match args.next().unwrap().as_str() {
         "new" => {
             let name = args.next().unwrap();
-            markov::Markov::new_from_scratch(&name);
+            markov::Markov::new_from_scratch(Some(&name));
         }
         "train" => {
             let name = args.next().unwrap();
