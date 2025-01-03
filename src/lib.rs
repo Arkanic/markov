@@ -1,3 +1,5 @@
+pub mod fasttrain;
+
 use std::collections::HashMap;
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 use sqlite::Connection;

@@ -31,16 +31,14 @@ fn main() {
             let file = args.next().unwrap();
             let content = fs::read_to_string(file).unwrap();
 
-            println!("creating in memory...");
-            let mut markov = markov::Markov::new_from_scratch(None);
-            println!("training in memory...");
-            markov.train(&content);
-            println!("running...");
-            println!("{}", markov.markov("the", 1000, None).unwrap());
+            println!("creating in memory");
+            let mut ft = markov::fasttrain::MemTrain::new();
+            println!("training in memory");
+            ft.train(&content);
+            println!("done.");
         }
         _ => {
             println!("markov new <name> - create new\nmarkov train <name> <file> - train name with file content\nmarkov run <name> <starting word> - run model name with starting word\nnote: no args error handling so don't mess up");
         }
     }
-
 }
