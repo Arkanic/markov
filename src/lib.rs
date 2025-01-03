@@ -239,22 +239,25 @@ impl Markov {
 
     pub fn apply_memtrain(&mut self, training:&MemTrain) {
         // first we want to find all new words, so that we can insert them therefore getting an ID that can be used for references
+        let mut i = 0;
+        let max = training.words.len();
         for (_, word) in &training.words {
-            let id = match self.lookup.get(&word.word) {
-                Some(id) => *id,
-                None => {
-                    // doesn't exist!
-                    let id = MarkovWord::create_self(&self.connection, &word.word);
-                    // now add to lookup
-                    self.lookup.insert(word.word.clone(), id);
+            println!("check {}/{}: {}", i, max, word.word);
+            i += 1;
 
-                    id
-                }
-            };
+            if self.lookup.get(&word.word).is_none() {
+                // doesn't exist!
+                let id = MarkovWord::create_self(&self.connection, &word.word);
+                // now add to lookup
+                self.lookup.insert(word.word.clone(), id);
+            }
         }
 
+        i = 0;
         // now that all words exist, we can add futures
         for (_, word) in &training.words {
+            println!("update {}/{}: {}", i, max, word.word);
+            i += 1;
             // now we want to add futures
             let mut mword = MarkovWord::from_read(&self.connection, *self.id_from_word(&word.word).unwrap());
             
