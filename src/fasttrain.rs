@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-struct MTWordRef {
-    word:String,
-    occurrences:u32
+pub struct MTWordRef {
+    pub word:String,
+    pub occurrences:u32
 }
 
 impl MTWordRef {
@@ -18,9 +18,9 @@ impl MTWordRef {
     }
 }
 
-struct MTWord {
-    word:String,
-    futures:HashMap<String, MTWordRef>
+pub struct MTWord {
+    pub word:String,
+    pub futures:HashMap<String, MTWordRef>
 }
 
 impl MTWord {
@@ -42,7 +42,7 @@ impl MTWord {
 }
 
 pub struct MemTrain {
-    words:HashMap<String, MTWord>
+    pub words:HashMap<String, MTWord>
 }
 
 impl MemTrain {

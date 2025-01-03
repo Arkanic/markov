@@ -3,6 +3,7 @@ pub mod fasttrain;
 use std::collections::HashMap;
 use weighted_rand::builder::{NewBuilder, WalkerTableBuilder};
 use sqlite::Connection;
+use fasttrain::MemTrain;
 
 static SQL_GETWORD:&str = "select * from words where id = ?";
 static SQL_INSERTWORD:&str = "insert into words values (NULL, ?, \"\")";
@@ -11,15 +12,10 @@ static SQL_UPDATEFUTURES:&str = "update words set futures = ? where id = ?";
 static SQL_GETLOOKUP:&str = "select * from words";
 static SQL_INIT:&str = "create table words (id integer primary key, word text, futures text)";
 
-struct MarkovWordReference {
-    id:i64,
-    occurrences:i64
-}
-
 struct MarkovWord {
     id:i64,
     word:String,
-    futures:Vec<MarkovWordReference>
+    futures:HashMap<i64, i64> // id:occurrences
 }
 
 impl MarkovWord {
@@ -30,14 +26,14 @@ impl MarkovWord {
 
         let word = statement.read::<String, _>("word").unwrap();
 
-        let mut futures:Vec<MarkovWordReference> = Vec::new();
+        let mut futures:HashMap<i64, i64> = HashMap::new();
         let futures_raw = statement.read::<String, _>("futures").unwrap();
         for future_raw in futures_raw.split(",").filter(|&s| !s.is_empty()) {
             let mut parts = future_raw.split(":");
-            futures.push(MarkovWordReference {
-                id: parts.next().unwrap().parse::<i64>().unwrap(),
-                occurrences: parts.next().unwrap().parse::<i64>().unwrap()
-            });
+            futures.insert(
+                parts.next().unwrap().parse::<i64>().unwrap(),
+                parts.next().unwrap().parse::<i64>().unwrap()
+            );
         }
 
         MarkovWord {
@@ -62,8 +58,8 @@ impl MarkovWord {
 
     fn update_self(&self, connection:&Connection) {
         let mut futures = String::new();
-        for future in self.futures.iter() {
-            futures.push_str(format!("{}:{},", future.id, future.occurrences).as_str());
+        for (id, occurrences) in &self.futures {
+            futures.push_str(format!("{}:{},", id, occurrences).as_str());
         }
 
         let mut statement = connection.prepare(SQL_UPDATEFUTURES).unwrap();
@@ -74,19 +70,14 @@ impl MarkovWord {
 
     fn add_occurrence(&mut self, id:i64) {
         // todo: not stupid search
-        let mut found = false;
-        for future in self.futures.iter_mut() {
-            if future.id == id {
-                found = true;
-                future.occurrences += 1;
-            }
-        }
+        let occurences = self.futures.entry(id).or_insert(0);
+        *occurences += 1;
+    }
 
-        if !found {
-            self.futures.push(MarkovWordReference {
-                id,
-                occurrences: 1
-            });
+    fn add_memtrain_futures(&mut self, mtf:&HashMap<i64, i64>) {
+        for (id, occurrence) in mtf {
+            let v = self.futures.entry(*id).or_insert(0);
+            *v += *occurrence
         }
     }
 
@@ -94,11 +85,11 @@ impl MarkovWord {
         let mut ids:Vec<i64> = Vec::new();
         let mut weights:Vec<u32> = Vec::new();
 
-        for future in self.futures.iter() {
-            if (future.id == -1) && !allow_end {
+        for (id, occurrences) in &self.futures {
+            if (*id == -1) && !allow_end {
             } else {
-                ids.push(future.id);
-                weights.push(future.occurrences as u32);
+                ids.push(*id);
+                weights.push(*occurrences as u32);
             }
         }
 
@@ -136,6 +127,7 @@ impl Markov {
             );
         };
     }
+
     pub fn new_from_existing(path:&str) -> Self {
         let connection = sqlite::open(path).unwrap();
 
@@ -172,7 +164,12 @@ impl Markov {
     }
 
     fn id_from_word(&self, word:&str) -> Option<&i64> {
-        self.lookup.get(word)
+        if word.is_empty() {
+            Some(&-1)
+        } else {
+            self.lookup.get(word)
+        }
+        
     }
 
     pub fn markov(&self, start:&str, maxlen:u32, options:Option<MarkovOptions>) -> Option<String> {
@@ -238,5 +235,36 @@ impl Markov {
         let lookup:HashMap<String, i64> = HashMap::new();
         self.lookup = lookup; // drop old table
         Markov::load_lookup(self);
+    }
+
+    pub fn apply_memtrain(&mut self, training:&MemTrain) {
+        // first we want to find all new words, so that we can insert them therefore getting an ID that can be used for references
+        for (_, word) in &training.words {
+            let id = match self.lookup.get(&word.word) {
+                Some(id) => *id,
+                None => {
+                    // doesn't exist!
+                    let id = MarkovWord::create_self(&self.connection, &word.word);
+                    // now add to lookup
+                    self.lookup.insert(word.word.clone(), id);
+
+                    id
+                }
+            };
+        }
+
+        // now that all words exist, we can add futures
+        for (_, word) in &training.words {
+            // now we want to add futures
+            let mut mword = MarkovWord::from_read(&self.connection, *self.id_from_word(&word.word).unwrap());
+            
+            let mut mtf:HashMap<i64, i64> = HashMap::new();
+            for (_, future) in &word.futures {
+                mtf.insert(*self.id_from_word(&future.word).unwrap(), future.occurrences as i64);
+            }
+
+            mword.add_memtrain_futures(&mtf);
+            mword.update_self(&self.connection);
+        }
     }
 }

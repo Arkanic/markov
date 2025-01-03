@@ -17,7 +17,12 @@ fn main() {
 
             let file = args.next().unwrap();
             let content = fs::read_to_string(file).unwrap();
-            markov.train(&content);
+            let mut ft = markov::fasttrain::MemTrain::new();
+            println!("training in memory...");
+            ft.train(&content);
+            println!("saving to database...");
+            markov.apply_memtrain(&ft);
+            println!("done!");
         }
         "run" => {
             let name = args.next().unwrap();
