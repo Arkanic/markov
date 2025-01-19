@@ -1,3 +1,4 @@
+#ifndef LL_H
 struct ll_list {
     struct ll_item *head;
     struct ll_item *current;
@@ -14,3 +15,6 @@ unsigned int ll_length(struct ll_list *list);
 void *ll_get(struct ll_list *list, unsigned int pos);
 void *ll_delete(struct ll_list *list, unsigned int pos);
 void **ll_freeall(struct ll_list *list);
+#endif
+
+#define LL_H

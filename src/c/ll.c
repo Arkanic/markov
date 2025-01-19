@@ -38,7 +38,7 @@ void *ll_get(struct ll_list *list, unsigned int pos) {
 }
 
 void *ll_delete(struct ll_list *list, unsigned int pos) {
-    if(list->head == NULL) return;
+    if(list->head == NULL) return NULL;
 
     struct ll_item *current = list->head;
     struct ll_item *previous = NULL;
