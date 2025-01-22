@@ -102,7 +102,6 @@ void **hm_freeall(struct hm_map *map) {
         unsigned int len = ll_length(bucket);
         struct hm_element **values = ll_freeall(bucket);
         for(int j = 0; j < len; j++) {
-            printf("%d\n", hashmap_items_index);
             struct hm_element *value = values[j];
             hashmap_items[hashmap_items_index] = value->value;
             hashmap_items_index++;
