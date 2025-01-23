@@ -1,13 +1,16 @@
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #include "hashmap.h"
+#include "ll.h"
 #include "markov.h"
 
 struct markov_word *_markov_m_word_create(char *word) {
     struct markov_word *mword = (struct markov_word *)malloc(sizeof(struct markov_word));
     mword->word = malloc(strlen(word) + 1);
     strcpy(mword->word, word);
+    mword->wordlen = strlen(word);
 
     mword->totaloccurences = 0;
 
@@ -93,16 +96,46 @@ void _markov_train_wordpair_handle(struct markov_chain *markov, char *first, cha
     _markov_m_word_occurence(word, child);
 }
 
-struct markov_word *_markov_generate_getnext(struct markov_word *word) {
-    
+struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
+    if(word->futures->items == 0) return NULL;
+
+    unsigned long long random = rand() % word->totaloccurences;
+    printf("%s: %llu\n", word->word, random);
+    struct markov_wordref **futures = hm_values(word->futures);
+    struct markov_wordref *future = futures[0];
+    for(int i = 0; random > 0; i++, future = futures[i], random -= future->occurences);
+    free(futures);
+
+    return future;
 }
 
-char *markov_generate(struct markov_chain *markov, unsigned long maxlen) {
-    char *output = (char *)malloc(sizeof(char) * maxlen);
-    char *current_position = output;
-    
-    unsigned short cont = 1;
-    while(cont == 1) {
+char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen) {
+    char **output = (char **)malloc(sizeof(char *) * maxparticlelen);
 
+    struct markov_word *current = hm_get(markov->words, first);
+    if(current == NULL) return NULL;
+    
+    srand(time(NULL));
+    unsigned long outlen;
+    unsigned long long output_bufsize = 0;
+    for(outlen = 0; outlen < maxparticlelen; outlen++) {
+        if(!strcmp(current->word, "")) break;
+        output[outlen] = current->word;
+        output_bufsize += current->wordlen;
+
+        current = _markov_generate_getnext(current)->word;
     }
+
+    char *output_buf = (char *)malloc(sizeof(char) * (output_bufsize + outlen + 1));
+    char *output_buf_index = output_buf;
+    for(int i = 0; i < outlen; i++) {
+        unsigned int len = strlen(output[i]);
+        memcpy(output_buf_index, output[i], len);
+        output_buf_index += len;
+        *output_buf_index = ' ';
+        output_buf_index++;
+    }
+    output_buf_index = '\0';
+
+    return output_buf;
 }

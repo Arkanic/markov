@@ -91,6 +91,25 @@ void *hm_delete(struct hm_map *map, char *key) {
     }
 }
 
+void **hm_values(struct hm_map *map) {
+    unsigned int hashmap_items_index = 0;
+    void **hashmap_items = (void **)malloc(sizeof(void *) * map->items);
+
+    for(int i = 0; i < (1 << map->size_exp); i++) {
+        struct ll_list *bucket = map->buckets[i];
+        if(bucket == NULL) continue;
+
+        unsigned int len = ll_length(bucket);
+        for(int j = 0; j < len; j++) {
+            struct hm_element *elem = ll_get(bucket, j);
+            hashmap_items[hashmap_items_index] = elem->value;
+            hashmap_items_index++;
+        }
+    }
+
+    return hashmap_items;
+}
+
 void **hm_freeall(struct hm_map *map) {
     unsigned int hashmap_items_index = 0;
     void **hashmap_items = (void **)malloc(sizeof(void *) * map->items);

@@ -25,5 +25,41 @@ int main(void) {
 
     markov_free(markov);
 
+    struct markov_word *words[] = {
+        _markov_m_word_create("hello"),
+        _markov_m_word_create("there"),
+        _markov_m_word_create("friend"),
+        _markov_m_word_create("enemy")
+    };
+
+    _markov_m_word_occurence(words[0], words[1]);
+    _markov_m_word_occurence(words[1], words[2]);
+    _markov_m_word_occurence(words[1], words[3]);
+
+    printf("hello: %s\n", words[0]->word);
+
+    printf("hello next: %s\n", _markov_generate_getnext(words[0])->word->word);
+    for(int i = 0; i < 10; i++) {
+        printf("there next #%d: %s\n", i, _markov_generate_getnext(words[1])->word->word);
+    }
+
+    _markov_m_word_free(words[0]);
+    _markov_m_word_free(words[1]);
+    _markov_m_word_free(words[2]);
+    _markov_m_word_free(words[3]);
+
+    printf("BEGIN FULL MARKOV\n");
+    markov = markov_new();
+    char content[] = "hello there friend hello there enemy hello hello";
+    char *dyn_content = (char *)malloc(sizeof(char) * (strlen(content) + 1));
+    strcpy(dyn_content, content);
+    markov_train(markov, dyn_content);
+
+    char *result = markov_generate(markov, "hello", 100);
+    printf("result: %s\n", result);
+    free(result);
+    free(dyn_content);
+    markov_free(markov);
+
     return 0;
 }
