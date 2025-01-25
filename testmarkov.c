@@ -9,10 +9,10 @@ int main(void) {
 
     struct markov_word *word1 = _markov_m_word_create("hello");
     struct markov_word *word2 = _markov_m_word_create("world");
-    _markov_m_word_occurence(word1, word2);
+    _markov_m_word_occurrence(word1, word2);
 
     struct markov_wordref *ref = (struct markov_wordref *)hm_get(word1->futures, "world");
-    printf("%s, %d\n", ref->word->word, ref->occurences);
+    printf("%s, %d\n", ref->word->word, ref->occurrences);
 
     char *txt = "hello there 1234";
     char *text = malloc(sizeof(char) * (strlen(txt) + 1));
@@ -32,9 +32,9 @@ int main(void) {
         _markov_m_word_create("enemy")
     };
 
-    _markov_m_word_occurence(words[0], words[1]);
-    _markov_m_word_occurence(words[1], words[2]);
-    _markov_m_word_occurence(words[1], words[3]);
+    _markov_m_word_occurrence(words[0], words[1]);
+    _markov_m_word_occurrence(words[1], words[2]);
+    _markov_m_word_occurrence(words[1], words[3]);
 
     printf("hello: %s\n", words[0]->word);
 

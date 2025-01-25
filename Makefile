@@ -3,7 +3,7 @@ CC=gcc
 %.o: %.c
 	$(CC) -c $<
 
-markov.a: markov.o hashmap.o ll.o
+markov.a: markov.o hashmap.o ll.o rand.o
 	ar rcs $@ $^
 
 test: test.o markov.a

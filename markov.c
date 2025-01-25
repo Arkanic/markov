@@ -4,6 +4,7 @@
 
 #include "hashmap.h"
 #include "ll.h"
+#include "rand.h"
 #include "markov.h"
 
 struct markov_word *_markov_m_word_create(char *word) {
@@ -12,26 +13,26 @@ struct markov_word *_markov_m_word_create(char *word) {
     strcpy(mword->word, word);
     mword->wordlen = strlen(word);
 
-    mword->totaloccurences = 0;
+    mword->totaloccurrences = 0;
 
     mword->futures = hm_create(12); // todo hashmap autoinc
 
     return mword;
 }
 
-void _markov_m_word_occurence(struct markov_word *word, struct markov_word *new_word) {
+void _markov_m_word_occurrence(struct markov_word *word, struct markov_word *new_word) {
     struct markov_wordref *reference = (struct markov_wordref *)hm_get(word->futures, new_word->word); // if this is NULL it wasn't present
     if(reference == NULL) {
         // now we need to make a new entry
         reference = (struct markov_wordref *)malloc(sizeof(struct markov_wordref));
-        reference->occurences = 0;
+        reference->occurrences = 0;
         reference->word = new_word;
 
         hm_insert(word->futures, new_word->word, reference);
     }
 
-    reference->occurences++;
-    word->totaloccurences++;
+    reference->occurrences++;
+    word->totaloccurrences++;
 }
 
 void _markov_m_word_free(struct markov_word *word) {
@@ -93,17 +94,26 @@ void _markov_train_wordpair_handle(struct markov_chain *markov, char *first, cha
 
     struct markov_word *word = _markov_get_or_insert(markov, first);
     struct markov_word *child = _markov_get_or_insert(markov, last);
-    _markov_m_word_occurence(word, child);
+    _markov_m_word_occurrence(word, child);
 }
 
 struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
     if(word->futures->items == 0) return NULL;
 
-    unsigned long long random = rand() % word->totaloccurences;
-    printf("%s: %llu\n", word->word, random);
+    long long rnum = rand_num(0, word->totaloccurrences);
+    printf("%s: total %llu, chosen %llu\n", word->word, word->totaloccurrences, rnum);
     struct markov_wordref **futures = hm_values(word->futures);
-    struct markov_wordref *future = futures[0];
-    for(int i = 0; random > 0; i++, future = futures[i], random -= future->occurences);
+    struct markov_wordref *future;
+    for(int i = 0; i < word->futures->items; i++) {
+        printf("rnum: %lld\n", rnum);
+        if(rnum < 0) {
+            printf("found!\n");
+            break;
+        }
+        future = futures[i];
+        printf("future %s: %llu occ\n", future->word->word, future->occurrences);
+        rnum -= future->occurrences;
+    }
     free(futures);
 
     return future;
@@ -114,12 +124,14 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
 
     struct markov_word *current = hm_get(markov->words, first);
     if(current == NULL) return NULL;
-    
-    srand(time(NULL));
+
     unsigned long outlen;
     unsigned long long output_bufsize = 0;
     for(outlen = 0; outlen < maxparticlelen; outlen++) {
-        if(!strcmp(current->word, "")) break;
+        if(!strcmp(current->word, "")) {
+            printf("breaking: %s\n", current->word);
+            break;
+        }
         output[outlen] = current->word;
         output_bufsize += current->wordlen;
 
