@@ -101,17 +101,11 @@ struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
     if(word->futures->items == 0) return NULL;
 
     long long rnum = rand_num(0, word->totaloccurrences);
-    printf("%s: total %llu, chosen %llu\n", word->word, word->totaloccurrences, rnum);
     struct markov_wordref **futures = hm_values(word->futures);
     struct markov_wordref *future;
     for(int i = 0; i < word->futures->items; i++) {
-        printf("rnum: %lld\n", rnum);
-        if(rnum < 0) {
-            printf("found!\n");
-            break;
-        }
+        if(rnum < 0) break;
         future = futures[i];
-        printf("future %s: %llu occ\n", future->word->word, future->occurrences);
         rnum -= future->occurrences;
     }
     free(futures);
@@ -125,13 +119,12 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
     struct markov_word *current = hm_get(markov->words, first);
     if(current == NULL) return NULL;
 
+    rand_init();
+
     unsigned long outlen;
     unsigned long long output_bufsize = 0;
     for(outlen = 0; outlen < maxparticlelen; outlen++) {
-        if(!strcmp(current->word, "")) {
-            printf("breaking: %s\n", current->word);
-            break;
-        }
+        if(!strcmp(current->word, "")) break;
         output[outlen] = current->word;
         output_bufsize += current->wordlen;
 

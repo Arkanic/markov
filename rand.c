@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <time.h>
 
+void rand_init(void) {
+    srand(time(NULL));
+}
+
 unsigned long long rand_num(unsigned long long min, unsigned long long max) {
-    unsigned int seed = time(0);
-    return rand_r(&seed) % (max - min + 1) + min;
+    return rand() % (max + 1 - min) + min;
 }
