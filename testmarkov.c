@@ -9,7 +9,7 @@ int main(void) {
 
     struct markov_word *word1 = _markov_m_word_create("hello");
     struct markov_word *word2 = _markov_m_word_create("world");
-    _markov_m_word_occurrence(word1, word2);
+    _markov_m_word_occurrence(word1, word2, 1);
 
     struct markov_wordref *ref = (struct markov_wordref *)hm_get(word1->futures, "world");
     printf("%s, %d\n", ref->word->word, ref->occurrences);
@@ -32,9 +32,9 @@ int main(void) {
         _markov_m_word_create("enemy")
     };
 
-    _markov_m_word_occurrence(words[0], words[1]);
-    _markov_m_word_occurrence(words[1], words[2]);
-    _markov_m_word_occurrence(words[1], words[3]);
+    _markov_m_word_occurrence(words[0], words[1], 1);
+    _markov_m_word_occurrence(words[1], words[2], 1);
+    _markov_m_word_occurrence(words[1], words[3], 1);
 
     printf("hello: %s\n", words[0]->word);
 
@@ -61,6 +61,10 @@ int main(void) {
     free(dyn_content);
 
     markov_writefile(markov, "./markov.dat");
+
+    struct markov_chain *new = markov_fromfile("./markov.dat");
+    markov_writefile(new, "./new.dat");
+    markov_free(new);
 
     markov_free(markov);
 

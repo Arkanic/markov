@@ -25,21 +25,12 @@ int main(void) {
     ll_push(list, &b);
     ll_push(list, &c);
 
-    ll_debug_numberprint(list);
-
-    ll_delete(list, 1);
-    ll_debug_numberprint(list);
-
-    ll_delete(list, 0);
-    ll_debug_numberprint(list);
-
-    ll_push(list, &d);
-    ll_debug_numberprint(list);
-
-    ll_delete(list, 1);
-    ll_debug_numberprint(list);
-
-    free(ll_freeall(list));
+    int **res = ll_freeall(list);
+    for(int i = 0; i < 3; i++) {
+        printf("%d ", *res[i]);
+    }
+    printf("\n");
+    free(res);
 
     printf("hashmap:\n");
     struct hm_map *map = hm_create(2);
