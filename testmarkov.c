@@ -59,6 +59,9 @@ int main(void) {
     printf("result: %s\n", result);
     free(result);
     free(dyn_content);
+
+    markov_writefile(markov, "./markov.dat");
+
     markov_free(markov);
 
     return 0;

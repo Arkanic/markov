@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
@@ -143,4 +144,49 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
     output_buf_index = '\0';
 
     return output_buf;
+}
+
+/*
+# file format:
+----
+## markov word
+word (%s)
+<futures>
+## markov future
+word (lu to line in file containing word, first line is line 0)
+occurences (du)
+*/
+// will overwrite any current file
+void markov_writefile(struct markov_chain *markov, char *outpath) {
+    struct markov_word **words = hm_values(markov->words);
+    // min size required to fit all elements
+    unsigned int pow = (sizeof(unsigned int) * 8) - __builtin_clzll(markov->words->items);
+    struct hm_map *word_pos_map = hm_create(pow);
+    for(unsigned long i = 0; i < markov->words->items; i++) {
+        struct markov_word *word = words[i];
+        hm_insert(word_pos_map, word->word, i);
+    }
+
+    FILE *fp = fopen(outpath, "w");
+
+    // all words are now in map, start appending
+    for(int i = 0; i < markov->words->items; i++) {
+        struct markov_word *word = words[i];
+        fwrite(word->word, word->wordlen + 1, 1, fp);
+
+        struct markov_wordref **futures = hm_values(word->futures);
+        for(int j = 0; j < word->futures->items; j++) {
+            struct markov_wordref *future = futures[j];
+            unsigned int futurepos = (unsigned int)hm_get(word_pos_map, future->word->word);
+            fwrite(&futurepos, sizeof(unsigned int), 1, fp);
+            fwrite(&future->occurrences, sizeof(unsigned int), 1, fp);
+        }
+        fputc('\n', fp);
+        free(futures);
+    }
+
+    fclose(fp);
+
+    free(words);
+    free(hm_freeall(word_pos_map));
 }

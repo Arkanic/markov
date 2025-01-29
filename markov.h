@@ -20,6 +20,7 @@ struct markov_chain *markov_new(void);
 void markov_free(struct markov_chain *markov);
 void markov_train(struct markov_chain *markov, char *text);
 char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen);
+void markov_writefile(struct markov_chain *markov, char *outpath);
 
 // dev functions for testing
 struct markov_word *_markov_m_word_create(char *word);

@@ -1,18 +1,18 @@
 CC=gcc
+OPTS=
 
 %.o: %.c
-	$(CC) -c $<
+	$(CC) $(OPTS) -c $<
 
 markov.a: markov.o hashmap.o ll.o rand.o
 	ar rcs $@ $^
 
 test: test.o markov.a
-	gcc -o $@ $^
+	gcc $(OPTS) -o $@ $^
 	./test
 
 testmarkov: testmarkov.o markov.a
-	gcc -o $@ $^
-	./testmarkov
+	gcc $(OPTS) -o $@ $^
 
 clean:
 	rm -f *.o test markov.a
