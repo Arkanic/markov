@@ -257,21 +257,18 @@ struct markov_chain *markov_fromfile(char *inpath) {
 
     unsigned int tempwordlen = ll_length(temp_markov_words);
     struct temp_markov_word **temp_words = ll_freeall(temp_markov_words);
+
     for(unsigned int i = 0; i < tempwordlen; i++) {
         struct temp_markov_word *temp_word = temp_words[i];
-        printf("temp word %s\n", temp_word->word);
 
         struct markov_word *word = hm_get(chain->words, temp_word->word);
 
         unsigned int tempwordrefslen = ll_length(temp_word->futures);
         for(int j = 0; j < tempwordrefslen; j++) {
             struct temp_markov_wordref *temp_wordref = ll_get(temp_word->futures, j);
-            printf("%u %u\n", temp_wordref->future, temp_wordref->occurrences);
 
-            struct markov_word *future = temp_words[temp_wordref->future];
-
-            printf("%s ", word->word);
-            printf("%s\n", future->word);
+            struct temp_markov_word *temp_future = temp_words[temp_wordref->future];
+            struct markov_word *future = hm_get(chain->words, temp_word->word);
 
             _markov_m_word_occurrence(word, future, temp_wordref->occurrences);
 
@@ -288,4 +285,17 @@ struct markov_chain *markov_fromfile(char *inpath) {
     free(temp_words);
 
     return chain;
+}
+
+void _markov_m_word_debug_print(struct markov_word *word) {
+    printf("word \"%s\":\n wordlen: %u\n totaloccurences: %llu\n futures:\n", word->word, word->wordlen, word->totaloccurrences);
+    struct markov_wordref **refs = hm_values(word->futures);
+    for(int i = 0; i < word->futures->items; i++) {
+        _markov_m_wordref_debug_print(refs[i]);
+    }
+    free(refs);
+}
+
+void _markov_m_wordref_debug_print(struct markov_wordref *ref) {
+    printf("  ref \"%s\": %u occurrences\n", ref->word->word, ref->occurrences);
 }
