@@ -268,7 +268,7 @@ struct markov_chain *markov_fromfile(char *inpath) {
             struct temp_markov_wordref *temp_wordref = ll_get(temp_word->futures, j);
 
             struct temp_markov_word *temp_future = temp_words[temp_wordref->future];
-            struct markov_word *future = hm_get(chain->words, temp_word->word);
+            struct markov_word *future = hm_get(chain->words, temp_future->word);
 
             _markov_m_word_occurrence(word, future, temp_wordref->occurrences);
 
@@ -283,6 +283,12 @@ struct markov_chain *markov_fromfile(char *inpath) {
     }
 
     free(temp_words);
+
+    struct markov_word **words = hm_values(chain->words);
+    for(int i = 0; i < chain->words->items; i++) {
+        _markov_m_word_debug_print(words[i]);
+    }
+    free(words);
 
     return chain;
 }
