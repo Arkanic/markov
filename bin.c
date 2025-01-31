@@ -37,7 +37,8 @@ int main(int argc, char *argv[]) {
         markov_free(chain);
     } else if(!strcmp(aarg, "run")) {
         struct markov_chain *chain = markov_fromfile(argv[2]);
-        char *result = markov_generate(chain, argv[3], 1000);
+        char *first = argc > 3 ? argv[3] : NULL;
+        char *result = markov_generate(chain, first, 1000);
         if(result == NULL) {
             printf("failed to generate\n");
             exit(2);

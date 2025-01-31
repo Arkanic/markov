@@ -50,7 +50,7 @@ void markov_train(struct markov_chain *markov, char *text);
 
 /**
  * Generate a chain of text from a pre-trained markov chain
- * @param first First word to kick off the chain. This word must be known to the chain in order to be successful.
+ * @param first First word to kick off the chain. This word must be known to the chain in order to be successful. If NULL will pick own first word based on model.
  * @param maxparticlelen Maximum length of text to produce before stopping.
  */
 char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen);

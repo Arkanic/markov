@@ -74,7 +74,8 @@ struct markov_word *_markov_get_or_insert(struct markov_chain *markov, char *wor
 
 // last can be NULL for end of file
 void _markov_train_wordpair_handle(struct markov_chain *markov, char *first, char *last) {
-    if(last == NULL) last = "";
+    if(last == NULL) last = "\x03"; // end of text
+    if(first == NULL) first = "\x02"; // start of text
 
     struct markov_word *word = _markov_get_or_insert(markov, first);
     struct markov_word *child = _markov_get_or_insert(markov, last);
@@ -84,26 +85,30 @@ void _markov_train_wordpair_handle(struct markov_chain *markov, char *first, cha
 // will consume text
 void markov_train(struct markov_chain *markov, char *text) {
     unsigned int text_len = strlen(text) + 1;
-    // temp fix disallow newline
+    // naughty characters
+    // 0x02 is STX which represents init, 0x03 is ETX which represents end
     for(unsigned int i = 0; i < text_len; i++) {
-        if(text[i] == '\n' || text[i] == '\0' || text[i] == '\r' || text[i] == '\t') {
+        if(text[i] == '\n' || text[i] == '\0' || text[i] == '\r' || text[i] == '\t' || text[i] == '\x02' || text[i] == '\x03') {
             text[i] = ' ';
         }
     }
 
     // we want to split words by space, but without all the overhead of copying - just loop to space and replace with \0 temporarily
-    char previous[1024] = "";
+    char previous[1024] = "\x02";
     char *current = strtok(text, " ");
     while(current != NULL) {
+        printf("first: %s last: %s\n", previous, current);
+
+        _markov_train_wordpair_handle(markov, previous, current);
+
         unsigned int current_len = strlen(current) + 1;
         current_len = current_len > 1024 ? 1024 : current_len;
         memcpy(previous, current, current_len);
         previous[1023] = '\0';
 
         current = strtok(NULL, " ");
-
-        _markov_train_wordpair_handle(markov, previous, current);
     }
+    _markov_train_wordpair_handle(markov, previous, NULL);
 }
 
 struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
@@ -125,6 +130,7 @@ struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
 char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen) {
     char **output = (char **)malloc(sizeof(char *) * maxparticlelen);
 
+    if(first == NULL) first = "\x02";
     struct markov_word *current = hm_get(markov->words, first);
     if(current == NULL) return NULL;
 
@@ -133,10 +139,10 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
     unsigned long outlen;
     unsigned long long output_bufsize = 0;
     for(outlen = 0; outlen < maxparticlelen; outlen++) {
-        if(!strcmp(current->word, "")) break;
+        if(!strcmp(current->word, "\x03")) break;
         output[outlen] = current->word;
         output_bufsize += current->wordlen;
-
+    
         current = _markov_generate_getnext(current)->word;
     }
 
