@@ -19,6 +19,7 @@ void *hm_get(struct hm_map *map, char *key);
 void *hm_delete(struct hm_map *map, char *key);
 void **hm_values(struct hm_map *map);
 void **hm_freeall(struct hm_map *map);
+void hm_bucket_print(struct hm_map *map);
 #endif
 
 #define HASHMAP_H

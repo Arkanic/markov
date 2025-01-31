@@ -6,7 +6,7 @@
 #include "markov.h"
 
 void print_help(void) {
-    printf("markov new <name> - create new\nmarkov train <name> <file> - train name with file content\nmarkov run <name> <starting word> - run model name with starting word\nnote: no args error handling so don't mess up\n");
+    printf("markov new <name> - create new\nmarkov train <name> <file> - train name with file content\nmarkov run <name> <starting word> - run model name with starting word\nmarkov bucketdump <name> - show list of buckets when word table loaded (BIG OUTPUT)\nnote: no args error handling so don't mess up\n");
     exit(1);
 }
 
@@ -44,6 +44,10 @@ int main(int argc, char *argv[]) {
         }
         printf("%s\n", result);
         free(result);
+        markov_free(chain);
+    } else if(!strcmp(aarg, "bucketdump")) {
+        struct markov_chain *chain = markov_fromfile(argv[2]);
+        hm_bucket_print(chain->words);
         markov_free(chain);
     } else {
         print_help();

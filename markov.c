@@ -17,7 +17,7 @@ struct markov_word *_markov_m_word_create(char *word) {
 
     mword->totaloccurrences = 0;
 
-    mword->futures = hm_create(12); // todo hashmap autoinc
+    mword->futures = hm_create(6);  // 1 << 6 = 64, next inc 1 << 8 = 256
 
     return mword;
 }
@@ -50,7 +50,7 @@ void _markov_m_word_free(struct markov_word *word) {
 
 struct markov_chain *markov_new(void) {
     struct markov_chain *markov = (struct markov_chain *)malloc(sizeof(struct markov_chain));
-    markov->words = hm_create(16); // again need to autoinc
+    markov->words = hm_create(16); // 65K
 
     return markov;
 }
