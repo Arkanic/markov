@@ -1,7 +1,4 @@
 *.o
-test
-testmarkov
+*.dat
 markov.a
-markov.dat
-new.dat
 markov

@@ -39,7 +39,7 @@ void _markov_m_word_occurrence(struct markov_word *word, struct markov_word *new
 
 void _markov_m_word_free(struct markov_word *word) {
     unsigned long refs_num = word->futures->items;
-    struct markov_wordref **refs = hm_freeall(word->futures);
+    struct markov_wordref **refs = (struct markov_wordref **)hm_freeall(word->futures);
     for(unsigned long i = 0; i < refs_num; i++) {
         struct markov_wordref *ref = refs[i];
         free(ref);
@@ -57,9 +57,28 @@ struct markov_chain *markov_new(void) {
 
 void markov_free(struct markov_chain *markov) {
     unsigned long words_num = markov->words->items;
-    struct markov_word **words = hm_freeall(markov->words);
+    struct markov_word **words = (struct markov_word **)hm_freeall(markov->words);
     for(unsigned long i = 0; i < words_num; i++) _markov_m_word_free(words[i]);
     free(markov);
+}
+
+struct markov_word *_markov_get_or_insert(struct markov_chain *markov, char *word) {
+    struct markov_word *obj = hm_get(markov->words, word);
+    if(obj == NULL) {
+        obj = _markov_m_word_create(word);
+        hm_insert(markov->words, word, obj);
+    }
+
+    return obj;
+}
+
+// last can be NULL for end of file
+void _markov_train_wordpair_handle(struct markov_chain *markov, char *first, char *last) {
+    if(last == NULL) last = "";
+
+    struct markov_word *word = _markov_get_or_insert(markov, first);
+    struct markov_word *child = _markov_get_or_insert(markov, last);
+    _markov_m_word_occurrence(word, child, 1);
 }
 
 // will consume text
@@ -87,31 +106,12 @@ void markov_train(struct markov_chain *markov, char *text) {
     }
 }
 
-struct markov_word *_markov_get_or_insert(struct markov_chain *markov, char *word) {
-    struct markov_word *obj = hm_get(markov->words, word);
-    if(obj == NULL) {
-        obj = _markov_m_word_create(word);
-        hm_insert(markov->words, word, obj);
-    }
-
-    return obj;
-}
-
-// last can be NULL for end of file
-void _markov_train_wordpair_handle(struct markov_chain *markov, char *first, char *last) {
-    if(last == NULL) last = "";
-
-    struct markov_word *word = _markov_get_or_insert(markov, first);
-    struct markov_word *child = _markov_get_or_insert(markov, last);
-    _markov_m_word_occurrence(word, child, 1);
-}
-
 struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
     if(word->futures->items == 0) return NULL;
 
     long long rnum = rand_num(0, word->totaloccurrences);
-    struct markov_wordref **futures = hm_values(word->futures);
-    struct markov_wordref *future;
+    struct markov_wordref **futures = (struct markov_wordref **)hm_values(word->futures);
+    struct markov_wordref *future = futures[0];
     for(int i = 0; i < word->futures->items; i++) {
         if(rnum < 0) break;
         future = futures[i];
@@ -167,13 +167,13 @@ occurences (du)
 */
 // will overwrite any current file
 void markov_writefile(struct markov_chain *markov, char *outpath) {
-    struct markov_word **words = hm_values(markov->words);
+    struct markov_word **words = (struct markov_word **)hm_values(markov->words);
     // min size required to fit all elements
     unsigned int pow = (sizeof(unsigned int) * 8) - __builtin_clzll(markov->words->items);
     struct hm_map *word_pos_map = hm_create(pow);
     for(unsigned long i = 0; i < markov->words->items; i++) {
         struct markov_word *word = words[i];
-        hm_insert(word_pos_map, word->word, i);
+        hm_insert(word_pos_map, word->word, (void *)i);
     }
 
     FILE *fp = fopen(outpath, "w");
@@ -187,7 +187,7 @@ void markov_writefile(struct markov_chain *markov, char *outpath) {
         uint32_t futurelen = word->futures->items;
         fwrite(&futurelen, sizeof(uint32_t), 1, fp);
 
-        struct markov_wordref **futures = hm_values(word->futures);
+        struct markov_wordref **futures = (struct markov_wordref **)hm_values(word->futures);
         for(int j = 0; j < word->futures->items; j++) {
             struct markov_wordref *future = futures[j];
             unsigned long _futurepos = (unsigned long)hm_get(word_pos_map, future->word->word);
@@ -266,7 +266,7 @@ struct markov_chain *markov_fromfile(char *inpath) {
     fclose(fp);
 
     unsigned int tempwordlen = ll_length(temp_markov_words);
-    struct temp_markov_word **temp_words = ll_freeall(temp_markov_words);
+    struct temp_markov_word **temp_words = (struct temp_markov_word **)ll_freeall(temp_markov_words);
 
     for(unsigned int i = 0; i < tempwordlen; i++) {
         struct temp_markov_word *temp_word = temp_words[i];
@@ -297,15 +297,15 @@ struct markov_chain *markov_fromfile(char *inpath) {
     return chain;
 }
 
+void _markov_m_wordref_debug_print(struct markov_wordref *ref) {
+    printf("  ref \"%s\": %u occurrences\n", ref->word->word, ref->occurrences);
+}
+
 void _markov_m_word_debug_print(struct markov_word *word) {
     printf("word \"%s\":\n wordlen: %u\n totaloccurences: %llu\n futures:\n", word->word, word->wordlen, word->totaloccurrences);
-    struct markov_wordref **refs = hm_values(word->futures);
+    struct markov_wordref **refs = (struct markov_wordref **)hm_values(word->futures);
     for(int i = 0; i < word->futures->items; i++) {
         _markov_m_wordref_debug_print(refs[i]);
     }
     free(refs);
-}
-
-void _markov_m_wordref_debug_print(struct markov_wordref *ref) {
-    printf("  ref \"%s\": %u occurrences\n", ref->word->word, ref->occurrences);
 }

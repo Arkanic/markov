@@ -1,6 +1,7 @@
 // cool cli interface for markov
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "markov.h"
 

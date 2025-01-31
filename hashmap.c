@@ -28,6 +28,8 @@ struct hm_map *hm_create(unsigned short size_exp) {
     for(int i = 0; i < truesize; i++) buckets[i] = NULL;
 
     map->buckets = buckets;
+
+    return map;
 }
 
 void hm_insert(struct hm_map *map, char *key, void *data) {
@@ -119,7 +121,7 @@ void **hm_freeall(struct hm_map *map) {
         if(bucket == NULL) continue;
 
         unsigned int len = ll_length(bucket);
-        struct hm_element **values = ll_freeall(bucket);
+        struct hm_element **values = (struct hm_element **)ll_freeall(bucket);
         for(int j = 0; j < len; j++) {
             struct hm_element *value = values[j];
             hashmap_items[hashmap_items_index] = value->value;

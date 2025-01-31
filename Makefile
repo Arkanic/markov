@@ -1,7 +1,11 @@
 CC=gcc
-OPTS=
+OPTS=-Wall
+RELEASE_OPTS=
 
 all: markov
+
+release: OPTS += $(RELEASE_OPTS)
+release: markov
 
 %.o: %.c
 	$(CC) $(OPTS) -c $<
@@ -12,14 +16,7 @@ markov.a: markov.o hashmap.o ll.o rand.o
 markov: bin.o markov.a
 	gcc $(OPTS) -o $@ $^
 
-test: test.o markov.a
-	gcc $(OPTS) -o $@ $^
-	./test
-
-testmarkov: testmarkov.o markov.a
-	gcc $(OPTS) -o $@ $^
-
 clean:
-	rm -f *.o test markov.a
+	rm -f *.o markov.a markov
 
 .PHONY: clean
