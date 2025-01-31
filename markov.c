@@ -97,7 +97,6 @@ void markov_train(struct markov_chain *markov, char *text) {
     char previous[1024] = "\x02";
     char *current = strtok(text, " ");
     while(current != NULL) {
-        printf("first: %s last: %s\n", previous, current);
 
         _markov_train_wordpair_handle(markov, previous, current);
 
