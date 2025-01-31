@@ -86,7 +86,7 @@ void markov_train(struct markov_chain *markov, char *text) {
     unsigned int text_len = strlen(text) + 1;
     // temp fix disallow newline
     for(unsigned int i = 0; i < text_len; i++) {
-        if(text[i] == '\n' || text[i] == '\0' || text[i] == '\r') {
+        if(text[i] == '\n' || text[i] == '\0' || text[i] == '\r' || text[i] == '\t') {
             text[i] = ' ';
         }
     }
@@ -149,6 +149,7 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
         *output_buf_index = ' ';
         output_buf_index++;
     }
+
     output_buf_index = '\0';
 
     return output_buf;
