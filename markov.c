@@ -64,8 +64,15 @@ void markov_free(struct markov_chain *markov) {
 
 // will consume text
 void markov_train(struct markov_chain *markov, char *text) {
-    // we want to split words by space, but without all the overhead of copying - just loop to space and replace with \0 temporarily
     unsigned int text_len = strlen(text) + 1;
+    // temp fix disallow newline
+    for(unsigned int i = 0; i < text_len; i++) {
+        if(text[i] == '\n' || text[i] == '\0' || text[i] == '\r') {
+            text[i] = ' ';
+        }
+    }
+
+    // we want to split words by space, but without all the overhead of copying - just loop to space and replace with \0 temporarily
     char previous[1024] = "";
     char *current = strtok(text, " ");
     while(current != NULL) {
@@ -152,6 +159,7 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
 ----
 ## markov word
 word (%s with space instead of null terminator)
+%du future count
 <futures>
 ## markov future
 word (lu to line in file containing word, first line is line 0)
@@ -175,6 +183,9 @@ void markov_writefile(struct markov_chain *markov, char *outpath) {
         struct markov_word *word = words[i];
         fwrite(word->word, word->wordlen, 1, fp);
         fputc(' ', fp);
+
+        uint32_t futurelen = word->futures->items;
+        fwrite(&futurelen, sizeof(uint32_t), 1, fp);
 
         struct markov_wordref **futures = hm_values(word->futures);
         for(int j = 0; j < word->futures->items; j++) {
@@ -230,9 +241,9 @@ struct markov_chain *markov_fromfile(char *inpath) {
         struct markov_word *mword = _markov_m_word_create(temp_word->word);
         hm_insert(chain->words, temp_word->word, mword);
 
-        c = fgetc(fp);
-        ungetc(c, fp);
-        while(c != '\n') {
+        uint32_t futurelength;
+        fread(&futurelength, sizeof(uint32_t), 1, fp);
+        for(int i = 0; i < futurelength; i++) {
             struct temp_markov_wordref *ref = (struct temp_markov_wordref *)malloc(sizeof(struct temp_markov_wordref));
             uint32_t future;
             uint32_t occurrences;
@@ -242,9 +253,6 @@ struct markov_chain *markov_fromfile(char *inpath) {
             ref->occurrences = occurrences;
 
             ll_push(temp_word->futures, ref);
-
-            c = fgetc(fp);
-            ungetc(c, fp);
         }
 
         fgetc(fp); // delete newline
@@ -254,6 +262,8 @@ struct markov_chain *markov_fromfile(char *inpath) {
         if(c == EOF) loop = 0;
         ungetc(c, fp);
     }
+
+    fclose(fp);
 
     unsigned int tempwordlen = ll_length(temp_markov_words);
     struct temp_markov_word **temp_words = ll_freeall(temp_markov_words);
@@ -283,12 +293,6 @@ struct markov_chain *markov_fromfile(char *inpath) {
     }
 
     free(temp_words);
-
-    struct markov_word **words = hm_values(chain->words);
-    for(int i = 0; i < chain->words->items; i++) {
-        _markov_m_word_debug_print(words[i]);
-    }
-    free(words);
 
     return chain;
 }
