@@ -196,7 +196,6 @@ void markov_writefile(struct markov_chain *markov, char *outpath) {
             fwrite(&futurepos, sizeof(uint32_t), 1, fp);
             fwrite(&occurrences, sizeof(uint32_t), 1, fp);
         }
-        fputc('\n', fp);
         free(futures);
     }
 
@@ -254,8 +253,6 @@ struct markov_chain *markov_fromfile(char *inpath) {
 
             ll_push(temp_word->futures, ref);
         }
-
-        fgetc(fp); // delete newline
 
         // now check for EOF
         c = fgetc(fp);
