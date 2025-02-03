@@ -128,7 +128,10 @@ struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
 
 char *markov_getfirst(struct markov_chain *markov) {
     struct markov_word *initial = hm_get(markov->words, "\x02");
-    return _markov_generate_getnext(initial)->word->word;
+    if(initial == NULL) {
+        printf("got null\n");
+        return NULL;
+    } else return _markov_generate_getnext(initial)->word->word;
 }
 
 char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen) {
@@ -163,6 +166,10 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
     output_buf_index = '\0';
 
     return output_buf;
+}
+
+void markov_free(void *item) {
+    free(item);
 }
 
 /*

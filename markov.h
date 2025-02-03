@@ -1,5 +1,3 @@
-#include "hashmap.h"
-
 /**
  * Representation of markov word. For internal use.
  */
@@ -7,7 +5,7 @@ struct markov_word {
     char *word;
     unsigned int wordlen;
     unsigned long long totaloccurrences;
-    struct hm_map *futures; // hm_map<string, markov_wordref>
+    void *futures; // hm_map<string, markov_wordref>
 };
 
 /**
@@ -60,6 +58,11 @@ char *markov_getfirst(struct markov_chain *markov);
  * @param maxparticlelen Maximum length of text to produce before stopping.
  */
 char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen);
+
+/**
+ * Arbritrary free for use with ffi
+ */
+void markov_free(void *item);
 
 /**
  * Write a markov chain to a file. Note that this does not free the `markov_chain` object, and it is still perfectly usable after being written to a file.
