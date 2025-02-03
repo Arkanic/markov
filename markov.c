@@ -168,7 +168,7 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
     return output_buf;
 }
 
-void markov_free(void *item) {
+void markov_libc_free(void *item) {
     free(item);
 }
 
