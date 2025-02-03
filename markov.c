@@ -126,6 +126,11 @@ struct markov_wordref *_markov_generate_getnext(struct markov_word *word) {
     return future;
 }
 
+char *markov_getfirst(struct markov_chain *markov) {
+    struct markov_word *initial = hm_get(markov->words, "\x02");
+    return _markov_generate_getnext(initial)->word->word;
+}
+
 char *markov_generate(struct markov_chain *markov, char *first, unsigned long maxparticlelen) {
     char **output = (char **)malloc(sizeof(char *) * maxparticlelen);
 
