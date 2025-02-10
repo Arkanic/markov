@@ -1,6 +1,6 @@
 CC=gcc
 OPTS=-Wall
-RELEASE_OPTS=-O3
+RELEASE_OPTS=-O3 -s
 
 all: markov
 

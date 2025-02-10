@@ -163,7 +163,7 @@ char *markov_generate(struct markov_chain *markov, char *first, unsigned long ma
         output_buf_index++;
     }
 
-    output_buf_index = '\0';
+    *output_buf_index = '\0';
 
     return output_buf;
 }
