@@ -87,7 +87,7 @@ void markov_train(struct markov_chain *markov, char *text) {
     unsigned int text_len = strlen(text) + 1;
     // naughty characters
     // 0x02 is STX which represents init, 0x03 is ETX which represents end
-    for(unsigned int i = 0; i < text_len; i++) {
+    for(unsigned int i = 0; i < (text_len - 1); i++) {
         if(text[i] == '\n' || text[i] == '\0' || text[i] == '\r' || text[i] == '\t' || text[i] == '\x02' || text[i] == '\x03') {
             text[i] = ' ';
         }

@@ -20,6 +20,6 @@ markov: bin.o markov.a
 	gcc $(OPTS) -o $@ $^
 
 clean:
-	rm -f *.o markov.a markov
+	rm -f *.o markov.a markov.so markov
 
 .PHONY: clean
